@@ -1,0 +1,52 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq \
+          python3-pip build-essential git zip unzip wget \
+          openjdk-17-jdk autoconf libtool pkg-config cmake \
+          libffi-dev libssl-dev libbz2-dev zlib1g-dev libsqlite3-dev
+
+    - name: Install Buildozer
+      run: |
+        pip install --upgrade pip
+        pip install buildozer==1.5.0 cython==0.29.36
+
+    - name: Cache Buildozer
+      uses: actions/cache@v3
+      with:
+        path: ~/.buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('planner_apk/buildozer.spec') }}
+        restore-keys: ${{ runner.os }}-buildozer-
+
+    - name: Build APK
+      working-directory: planner_apk
+      run: |
+        yes | buildozer android debug 2>&1 | tail -100
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: SmartPlanner-APK
+        path: planner_apk/bin/*.apk
+        retention-days: 60
+        if-no-files-found: error
